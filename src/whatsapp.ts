@@ -83,7 +83,7 @@ export class WhatsAppClient {
       logger: baileysLogger as never,
       printQRInTerminal: false,
       markOnlineOnConnect: false, // keep phone notifications working
-      syncFullHistory: false,
+      syncFullHistory: true,
       generateHighQualityLinkPreview: false,
     });
     this.sock = sock;
