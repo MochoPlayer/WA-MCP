@@ -10,6 +10,7 @@ import * as fs from "fs";
 export const DATA_DIR = process.env.WA_MCP_DATA_DIR || path.join(os.homedir(), ".wa-mcp");
 export const AUTH_DIR = path.join(DATA_DIR, "auth");
 export const DB_PATH = path.join(DATA_DIR, "messages.db");
+export const CONN_LOG = path.join(DATA_DIR, "connection.log");
 
 export function ensureDataDirs(): void {
   fs.mkdirSync(AUTH_DIR, { recursive: true });

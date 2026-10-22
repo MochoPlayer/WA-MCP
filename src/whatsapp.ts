@@ -8,7 +8,7 @@ import makeWASocket, {
 } from "@whiskeysockets/baileys";
 import * as fs from "fs";
 import * as path from "path";
-import { AUTH_DIR, ensureDataDirs } from "./config.js";
+import { AUTH_DIR, CONN_LOG, ensureDataDirs } from "./config.js";
 import { baileysLogger, log } from "./logger.js";
 import type { Store } from "./store.js";
 
@@ -39,6 +39,16 @@ export function clearSession(): void {
   fs.rmSync(AUTH_DIR, { recursive: true, force: true });
 }
 
+/** Connection log (local change, Brain vault 22 Oct 2026): one JSON line per open/close and an "alive" line
+ *  every 5 min while connected, so readers can tell when the store was not receiving messages. */
+function connLog(ev: string, extra: Record<string, unknown> = {}): void {
+  try {
+    fs.appendFileSync(CONN_LOG, JSON.stringify({ t: Math.floor(Date.now() / 1000), pid: process.pid, ev, ...extra }) + "\n");
+  } catch {
+    /* ignore */
+  }
+}
+
 export class WhatsAppClient {
   sock: WASocket | null = null;
   status: ConnectionStatus = "disconnected";
@@ -48,6 +58,7 @@ export class WhatsAppClient {
   private stopped = false;
   private reconnectDelay = 2000;
   private groupCache = new Map<string, { meta: GroupMetadata; fetchedAt: number }>();
+  private aliveTimer: NodeJS.Timeout | null = null;
 
   constructor(opts: WhatsAppClientOptions) {
     this.opts = opts;
@@ -68,6 +79,14 @@ export class WhatsAppClient {
     }
     this.sock = null;
     this.status = "disconnected";
+    this.setAlive(false);
+    connLog("stop");
+  }
+
+  private setAlive(on: boolean): void {
+    if (this.aliveTimer) clearInterval(this.aliveTimer);
+    this.aliveTimer = on ? setInterval(() => connLog("alive"), 5 * 60_000) : null;
+    this.aliveTimer?.unref();
   }
 
   private async connect(): Promise<void> {
@@ -100,12 +119,16 @@ export class WhatsAppClient {
         this.reconnectDelay = 2000;
         this.meJid = sock.user?.id ?? null;
         log(`[wa-mcp] connected as ${sock.user?.id ?? "?"}`);
+        connLog("open");
+        this.setAlive(true);
         this.opts.onOpen?.();
       }
 
       if (connection === "close") {
         const statusCode = (lastDisconnect?.error as { output?: { statusCode?: number } } | undefined)?.output
           ?.statusCode;
+        this.setAlive(false);
+        connLog("close", { code: statusCode ?? null });
         if (statusCode === DisconnectReason.loggedOut) {
           this.status = "logged_out";
           log("[wa-mcp] session logged out. Run `npm run login` to re-link.");
