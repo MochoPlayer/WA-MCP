@@ -15,7 +15,7 @@ WhatsApp account. Uses [Baileys](https://github.com/WhiskeySockets/Baileys)
 
 ```powershell
 # 0. Clone the repo and enter the folder
-git clone https://github.com/JaromirSvaton/WA-MCP.git
+git clone https://github.com/MochoPlayer/WA-MCP.git
 cd WA-MCP
 
 # 1. Install + build + show the Claude Desktop config for your machine
@@ -101,3 +101,7 @@ chat.
   `npm run login` again.
 - **Ban risk** - this uses an unofficial API. Keep usage personal and
   low-volume; don't send bulk/automated spam.
+
+## License and credits
+
+[MIT](LICENSE). Based on [JaromirSvaton/WA-MCP](https://github.com/JaromirSvaton/WA-MCP) by Jaromír; this version adds `download_media` and a connection log.
