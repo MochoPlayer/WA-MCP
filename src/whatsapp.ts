@@ -41,7 +41,7 @@ export function clearSession(): void {
   fs.rmSync(AUTH_DIR, { recursive: true, force: true });
 }
 
-/** Connection log (local change, Brain vault 22 Oct 2026): one JSON line per open/close and an "alive" line
+/** Connection log: one JSON line per open/close and an "alive" line
  *  every 5 min while connected, so readers can tell when the store was not receiving messages. */
 function connLog(ev: string, extra: Record<string, unknown> = {}): void {
   try {
@@ -200,7 +200,7 @@ export class WhatsAppClient {
     const raw = this.opts.store.getRawMedia(chatJid, messageId);
     if (!raw) {
       throw new Error(
-        "No download data stored for this message. Only media received after 3 Nov 2026 (or re-synced) can be downloaded."
+        "No download data stored for this message. Only media received while download support was running (or re-synced) can be downloaded."
       );
     }
     const buffer = (await downloadMediaMessage(

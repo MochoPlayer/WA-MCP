@@ -11,7 +11,7 @@ export const DATA_DIR = process.env.WA_MCP_DATA_DIR || path.join(os.homedir(), "
 export const AUTH_DIR = path.join(DATA_DIR, "auth");
 export const DB_PATH = path.join(DATA_DIR, "messages.db");
 export const CONN_LOG = path.join(DATA_DIR, "connection.log");
-/** Files saved by the download_media tool (Brain vault change, 3 Nov 2026). */
+/** Files saved by the download_media tool. */
 export const MEDIA_DIR = path.join(DATA_DIR, "media");
 
 export function ensureDataDirs(): void {

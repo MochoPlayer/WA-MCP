@@ -64,6 +64,7 @@ chat.
 | `search_messages` | Full-text search across all stored messages |
 | `search_contacts` | Find a contact's JID by name or number |
 | `send_message` | Send text to a phone number or group JID |
+| `download_media` | Save the file of a document, image, video or audio message to `~/.wa-mcp/media/<chat>/` and return its path |
 | `list_group_participants` | Members of a group |
 | `get_connection_status` | Troubleshooting |
 
@@ -76,6 +77,11 @@ chat.
   keeps it running in the background). History from before the first login is
   only partially available - WhatsApp sends a limited recent-history sync.
 - Claude Desktop asks for your approval before every `send_message` call.
+- **Downloading files:** the server keeps the raw record of every media message it
+  receives (needed to fetch the file later). `read_messages` and `search_messages`
+  show `{id: ...}` on media lines; pass that id and the chat JID to `download_media`.
+  Only media received while this version runs (or re-synced) can be downloaded, and
+  WhatsApp must be connected. Files are saved on your disk only.
 
 ## Commands
 

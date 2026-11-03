@@ -60,7 +60,7 @@ export class Store {
         jid TEXT PRIMARY KEY,
         name TEXT
       );
-      -- Raw protobuf of media messages (keys needed to download the file later). Added 3 Nov 2026.
+      -- Raw protobuf of media messages (keys needed to download the file later).
       CREATE TABLE IF NOT EXISTS media_raw (
         id TEXT NOT NULL,
         chat_jid TEXT NOT NULL,
