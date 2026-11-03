@@ -10,17 +10,33 @@ export interface ExtractedContent {
  * Unwrap the wrappers, then pull out human-readable text.
  * Returns null for protocol noise (key distribution, deletions, etc.).
  */
-export function extractContent(message: proto.IMessage | null | undefined): ExtractedContent | null {
-  if (!message) return null;
-
-  // Unwrap container types
-  const m =
+export function unwrapMessage(message: proto.IMessage): proto.IMessage {
+  return (
     message.ephemeralMessage?.message ??
     message.viewOnceMessage?.message ??
     message.viewOnceMessageV2?.message ??
     message.documentWithCaptionMessage?.message ??
     message.editedMessage?.message?.protocolMessage?.editedMessage ??
-    message;
+    message
+  );
+}
+
+/** Message types whose file can be downloaded later with the download_media tool. */
+export const MEDIA_TYPES = new Set(["document", "image", "video", "audio"]);
+
+/** File name for a downloaded media message (documents keep their own name). */
+export function mediaFileName(message: proto.IMessage | null | undefined, fallbackId: string): string {
+  const m = message ? unwrapMessage(message) : null;
+  const doc = m?.documentMessage;
+  if (doc?.fileName) return doc.fileName;
+  const ext = m?.imageMessage ? "jpg" : m?.videoMessage ? "mp4" : m?.audioMessage ? "ogg" : "bin";
+  return `${fallbackId}.${ext}`;
+}
+
+export function extractContent(message: proto.IMessage | null | undefined): ExtractedContent | null {
+  if (!message) return null;
+
+  const m = unwrapMessage(message);
 
   if (m.conversation) return { text: m.conversation, type: "text" };
   if (m.extendedTextMessage?.text) return { text: m.extendedTextMessage.text, type: "text" };

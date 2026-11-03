@@ -8,6 +8,7 @@ import { z } from "zod";
 import { Store, type MessageRow } from "./store.js";
 import { WhatsAppClient, hasSavedSession, normalizeRecipient } from "./whatsapp.js";
 import { ensureDataDirs } from "./config.js";
+import { MEDIA_TYPES } from "./extract.js";
 import { log } from "./logger.js";
 
 ensureDataDirs();
@@ -33,7 +34,9 @@ function fmtTime(unixSeconds: number): string {
 
 function fmtMessage(m: MessageRow): string {
   const who = m.from_me ? "me" : m.sender_name || store.getContactName(m.sender_jid) || m.sender_jid;
-  return `[${fmtTime(m.timestamp)}] ${who}: ${m.text}`;
+  // Media messages show their id, so download_media can fetch the file.
+  const id = MEDIA_TYPES.has(m.type) ? `  {id: ${m.id}}` : "";
+  return `[${fmtTime(m.timestamp)}] ${who}: ${m.text}${id}`;
 }
 
 async function ensureConnected(): Promise<string | null> {
@@ -161,6 +164,29 @@ server.registerTool(
       return text(`Message sent to ${name ? `${name} (${jid})` : jid}.`);
     } catch (e) {
       return errorText(`Failed to send: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
+);
+
+server.registerTool(
+  "download_media",
+  {
+    title: "Download WhatsApp media",
+    description:
+      "Download the file (document, image, video or audio) of a media message to the local disk and return its path. Get chat_jid and the message id from read_messages or search_messages (media lines end with {id: ...}). Only media received after the download feature was added can be fetched, and WhatsApp must be connected.",
+    inputSchema: {
+      chat_jid: z.string().describe("Chat JID of the message"),
+      message_id: z.string().describe("Message id shown as {id: ...} on the media line"),
+    },
+  },
+  async ({ chat_jid, message_id }) => {
+    const err = await ensureConnected();
+    if (err) return errorText(err);
+    try {
+      const file = await client.downloadMedia(chat_jid, message_id);
+      return text(`Saved: ${file}`);
+    } catch (e) {
+      return errorText(`Failed to download: ${e instanceof Error ? e.message : String(e)}`);
     }
   }
 );

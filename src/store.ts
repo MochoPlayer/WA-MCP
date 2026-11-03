@@ -1,6 +1,6 @@
 import Database from "better-sqlite3";
-import { jidNormalizedUser, isJidGroup, type proto, type Chat, type Contact } from "@whiskeysockets/baileys";
-import { extractContent } from "./extract.js";
+import { jidNormalizedUser, isJidGroup, proto, type Chat, type Contact } from "@whiskeysockets/baileys";
+import { extractContent, MEDIA_TYPES } from "./extract.js";
 import { DB_PATH } from "./config.js";
 
 export interface ChatRow {
@@ -59,6 +59,13 @@ export class Store {
       CREATE TABLE IF NOT EXISTS contacts (
         jid TEXT PRIMARY KEY,
         name TEXT
+      );
+      -- Raw protobuf of media messages (keys needed to download the file later). Added 3 Nov 2026.
+      CREATE TABLE IF NOT EXISTS media_raw (
+        id TEXT NOT NULL,
+        chat_jid TEXT NOT NULL,
+        raw BLOB NOT NULL,
+        PRIMARY KEY (id, chat_jid)
       );
     `);
   }
@@ -121,6 +128,13 @@ export class Store {
       )
       .run(id, chatJid, senderJid, msg.pushName ?? null, fromMe, timestamp, content.text, content.type);
 
+    if (MEDIA_TYPES.has(content.type)) {
+      const raw = proto.WebMessageInfo.encode(proto.WebMessageInfo.fromObject(msg as never)).finish();
+      this.db
+        .prepare(`INSERT OR REPLACE INTO media_raw (id, chat_jid, raw) VALUES (?, ?, ?)`)
+        .run(id, chatJid, Buffer.from(raw));
+    }
+
     this.upsertChat(chatJid, null, timestamp);
     if (!fromMe && msg.pushName && senderJid.endsWith("@s.whatsapp.net")) {
       // remember push names as fallback contact names
@@ -180,6 +194,14 @@ export class Store {
          LIMIT @limit`
       )
       .all({ q: `%${query}%`, limit }) as never;
+  }
+
+  /** The stored raw message of a media message, or null when it was received before media keys were kept. */
+  getRawMedia(chatJid: string, id: string): proto.WebMessageInfo | null {
+    const row = this.db.prepare(`SELECT raw FROM media_raw WHERE chat_jid = ? AND id = ?`).get(chatJid, id) as
+      | { raw: Buffer }
+      | undefined;
+    return row ? proto.WebMessageInfo.decode(row.raw) : null;
   }
 
   getContactName(jid: string): string | null {

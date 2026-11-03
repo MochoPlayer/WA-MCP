@@ -1,4 +1,5 @@
 import makeWASocket, {
+  downloadMediaMessage,
   useMultiFileAuthState,
   fetchLatestBaileysVersion,
   DisconnectReason,
@@ -8,7 +9,8 @@ import makeWASocket, {
 } from "@whiskeysockets/baileys";
 import * as fs from "fs";
 import * as path from "path";
-import { AUTH_DIR, CONN_LOG, ensureDataDirs } from "./config.js";
+import { AUTH_DIR, CONN_LOG, MEDIA_DIR, ensureDataDirs } from "./config.js";
+import { mediaFileName } from "./extract.js";
 import { baileysLogger, log } from "./logger.js";
 import type { Store } from "./store.js";
 
@@ -188,6 +190,35 @@ export class WhatsAppClient {
     const result = await this.sock.sendMessage(jid, { text });
     if (result) this.opts.store.storeMessage(result);
     return result ?? undefined;
+  }
+
+  /** Downloads the file of a stored media message into MEDIA_DIR/<chat>/ and returns the saved path. */
+  async downloadMedia(chatJid: string, messageId: string): Promise<string> {
+    if (!this.sock || this.status !== "connected") {
+      throw new Error("WhatsApp is not connected");
+    }
+    const raw = this.opts.store.getRawMedia(chatJid, messageId);
+    if (!raw) {
+      throw new Error(
+        "No download data stored for this message. Only media received after 3 Nov 2026 (or re-synced) can be downloaded."
+      );
+    }
+    const buffer = (await downloadMediaMessage(
+      raw as never,
+      "buffer",
+      {},
+      { logger: baileysLogger as never, reuploadRequest: this.sock.updateMediaMessage }
+    )) as Buffer;
+
+    const dir = path.join(MEDIA_DIR, chatJid.replace(/[^\w.-]/g, "_"));
+    fs.mkdirSync(dir, { recursive: true });
+    const safe = path.basename(mediaFileName(raw.message, messageId)).replace(/[<>:"/\\|?*\x00-\x1f]/g, "_");
+    const ext = path.extname(safe);
+    const stem = path.basename(safe, ext);
+    let target = path.join(dir, safe);
+    for (let n = 1; fs.existsSync(target); n++) target = path.join(dir, `${stem} (${n})${ext}`);
+    fs.writeFileSync(target, buffer);
+    return target;
   }
 
   async getGroupMetadata(jid: string): Promise<GroupMetadata> {
